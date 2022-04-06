@@ -24,6 +24,8 @@ GEOCHEMISTRY      := yes
 POROUS_FLOW       := yes
 STOCHASTIC_TOOLS  := yes
 TENSOR_MECHANICS  := yes
+RAY_TRACING       := yes
+HEAT_CONDUCTION   := yes
 
 include           $(MOOSE_DIR)/modules/modules.mk
 ###############################################################################
