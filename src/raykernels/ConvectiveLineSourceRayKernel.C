@@ -22,21 +22,18 @@ ConvectiveLineSourceRayKernelTempl<is_ad>::validParams()
   InputParameters params = GenericRayKernel<is_ad>::validParams();
 
   params.addClassDescription(
-      "Demonstrates the multiple ways that scalar values can be introduced "
-      "into RayKernels, e.g. (controllable) constants, functions, "
-      "postprocessors, and data on rays. Implements the weak form $(\\psi_i, -f)$ along a line.");
-
-  params.addParam<Real>("heated_perimeter", 1.0, "Coefficient to multiply by the line source term");
-  params.addParam<FunctionName>("T_infinity", "1", "A function that describes the line source");
-  params.addParam<FunctionName>("heat_transfer_coefficient", "1", "A function that describes the line source");
-  params.addParam<PostprocessorName>(
-      "postprocessor", 1, "A postprocessor whose value is multiplied by the line source");
+      "Apply a convective heat transfer as line source, e.g. small diameter "
+      "pipe in large domain"
+    );
+  params.addParam<Real>("heated_perimeter", 1.0, "Heated perimeter where the convection is happening");
+  params.addParam<FunctionName>("T_infinity", "1", "A function that calculate the temperature of the fluid that is exchanging heat with the solid domain");
+  params.addParam<FunctionName>("heat_transfer_coefficient", "1", "A function that calculate heat exchange coefficient between the solid and fluid domains");
   params.addParam<std::vector<std::string>>(
       "ray_data_factor_names", "The names of the Ray data to scale the source by (if any)");
   params.addParam<std::vector<std::string>>(
       "ray_aux_data_factor_names", "The names of the Ray aux data to scale the source by (if any)");
 
-  params.declareControllable("value");
+  params.declareControllable("heated_perimeter");
 
   return params;
 }
@@ -47,7 +44,6 @@ ConvectiveLineSourceRayKernelTempl<is_ad>::ConvectiveLineSourceRayKernelTempl(co
     _heated_perimeter(this->template getParam<Real>("heated_perimeter")),
     _T_infinity(getFunction("T_infinity")),
     _htc(getFunction("heat_transfer_coefficient")),
-    _postprocessor(getPostprocessorValue("postprocessor")),
     _ray_data_factor_indices(this->_study.getRayDataIndices(
         this->template getParam<std::vector<std::string>>("ray_data_factor_names"))),
     _ray_aux_data_factor_indices(this->_study.getRayAuxDataIndices(
@@ -59,7 +55,7 @@ template <bool is_ad>
 GenericReal<is_ad>
 ConvectiveLineSourceRayKernelTempl<is_ad>::computeQpResidual()
 {
-  Real factor = _heated_perimeter * _postprocessor * _htc.value(_t, _q_point[_qp]);
+  Real factor = _heated_perimeter * _htc.value(_t, _q_point[_qp]);
 
   // Scale by any Ray data and aux data if given
   for (const auto index : _ray_data_factor_indices)

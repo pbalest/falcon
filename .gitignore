@@ -1,3 +1,4 @@
+local-*
 tpl/tetgen/tetgen
 .failed_tests
 .libs

@@ -16,15 +16,12 @@ public:
 protected:
   virtual GenericReal<is_ad> computeQpResidual() override;
 
-  /// Scale factor
+  /// Heated perimeter to scale the linear heat source.
   const Real & _heated_perimeter;
 
-  /// Optional function value
+  /// Convective values.
   const Function & _T_infinity;
   const Function & _htc;
-
-  /// Optional Postprocessor value
-  const PostprocessorValue & _postprocessor;
 
   /// Indices into the Ray data that we want to scale the residual by (may be empty)
   const std::vector<RayDataIndex> _ray_data_factor_indices;
