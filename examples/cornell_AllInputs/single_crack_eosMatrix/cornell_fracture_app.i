@@ -1,30 +1,39 @@
+# FIXME LYNN THIS IS STILL IN MPa even though the matrix is in Pa
 # Cold water injection into one side of the fracture network, and production from the other side
-injection_rate = 0.1 #25 # kg/s
-endTime = 3.16e8
+injection_rate = 25 # kg/s
+endTime=63e6 #31.54e6
 [Mesh]
   uniform_refine = 0
   [single_frac]
     type = FileMeshGenerator
-    file = 'rect_100_10_medium.e'
+    # file = 'Cluster_34.exo'
+    file = 'single_fracture.exo'
   []
-  [injection_node]
+  [injection_node] #dirichleteBC needs a nodeset.
     type = BoundingBoxNodeSetGenerator
     input = single_frac
-    bottom_left = '-5 -55 -5'
-    top_right = '5 -45 5'
+    bottom_left = '-5 370 -5'
+    top_right = '5 380 5'
     new_boundary = injection_node
+  []
+  [moveMesh]
+    type = TransformGenerator
+    input = injection_node
+    transform = TRANSLATE
+    vector_value = '0 0 -3000'
   []
 []
 
 [GlobalParams]
   PorousFlowDictator = dictator
-  gravity = '0 0 -9.81'
+  gravity = '0 0 -9.81e-6' # Note the value, because of pressure_unit
 []
 
 [Variables]
   [frac_P]
   []
   [frac_T]
+    initial_condition = 363
   []
 []
 
@@ -34,11 +43,6 @@ endTime = 3.16e8
     variable = frac_P
     function = insitu_pp
   []
-  [frac_T]
-    type = FunctionIC
-    variable = frac_T
-    function = insitu_T
-  []
 []
 
 [PorousFlowFullySaturated]
@@ -46,7 +50,7 @@ endTime = 3.16e8
   porepressure = frac_P
   temperature = frac_T
   fp = water
-  pressure_unit = Pa
+  pressure_unit = MPa
 []
 
 [Kernels]
@@ -60,33 +64,15 @@ endTime = 3.16e8
 []
 
 [AuxVariables]
-  [transferred_matrix_T]
-    initial_condition = 363
-  []
   [heat_transfer_coefficient]
     family = MONOMIAL
     order = CONSTANT
     initial_condition = 0.0
   []
+  [transferred_matrix_T]
+    initial_condition = 363
+  []
   [joules_per_s]
-  []
-  [aperture]
-    family = MONOMIAL
-    order = CONSTANT
-  []
-  [perm_times_app]
-    family = MONOMIAL
-    order = CONSTANT
-  []
-  [density]
-    family = MONOMIAL
-    order = CONSTANT
-  []
-  [viscosity]
-    family = MONOMIAL
-    order = CONSTANT
-  []
-  [insitu_pp]
   []
   [normal_dirn_x]
     family = MONOMIAL
@@ -107,6 +93,24 @@ endTime = 3.16e8
   [enclosing_element_normal_thermal_cond]
     family = MONOMIAL
     order = CONSTANT
+  []
+  [aperture]
+    family = MONOMIAL
+    order = CONSTANT
+  []
+  [perm_times_app]
+    family = MONOMIAL
+    order = CONSTANT
+  []
+  [density]
+    family = MONOMIAL
+    order = CONSTANT
+  []
+  [viscosity]
+    family = MONOMIAL
+    order = CONSTANT
+  []
+  [insitu_pp]
   []
 []
 
@@ -131,14 +135,8 @@ endTime = 3.16e8
     variable = heat_transfer_coefficient
     args = 'enclosing_element_normal_length enclosing_element_normal_thermal_cond'
     constant_names = h_s
-    constant_expressions = 1E3 #This is the value being assigned to h_s.   Should be much bigger than thermal_conductivity / L ~ 1
+    constant_expressions = 1E3 # should be much bigger than thermal_conductivity / L ~ 1
     function = 'if(enclosing_element_normal_length = 0, 0, h_s * enclosing_element_normal_thermal_cond * 2 * enclosing_element_normal_length / (h_s * enclosing_element_normal_length * enclosing_element_normal_length + enclosing_element_normal_thermal_cond * 2 * enclosing_element_normal_length))'
-  []
-  [insitu_pp]
-    type = FunctionAux
-    execute_on = initial
-    variable = insitu_pp
-    function = insitu_pp
   []
   [aperture]
     type = PorousFlowPropertyAux
@@ -164,6 +162,12 @@ endTime = 3.16e8
     property = viscosity
     phase = 0
   []
+  [insitu_pp]
+    type = FunctionAux
+    execute_on = initial
+    variable = insitu_pp
+    function = insitu_pp
+  []
 []
 
 [BCs]
@@ -171,7 +175,7 @@ endTime = 3.16e8
     type = DirichletBC
     boundary = injection_node
     variable = frac_T
-    value = 303
+    value = 313
   []
 []
 
@@ -179,13 +183,13 @@ endTime = 3.16e8
   [inject_fluid]
     type = PorousFlowPointSourceFromPostprocessor
     mass_flux = ${injection_rate}
-    point = '0 -50 0'
+    point = '0 375 -3000'
     variable = frac_P
   []
   [withdraw_fluid]
     type = PorousFlowPeacemanBorehole
     SumQuantityUO = kg_out_uo
-    bottom_p_or_t = 30.6e6
+    bottom_p_or_t = 30.6 # 1MPa + approx insitu at production point, to prevent aperture closing due to low porepressures
     character = 1
     line_length = 1
     point_file = production_single_fracture.xyz
@@ -197,7 +201,7 @@ endTime = 3.16e8
   [withdraw_heat]
     type = PorousFlowPeacemanBorehole
     SumQuantityUO = J_out_uo
-    bottom_p_or_t = 30.6e6
+    bottom_p_or_t = 30.6 # 1MPa + approx insitu at production point, to prevent aperture closing due to low porepressures
     character = 1
     line_length = 1
     point_file = production_single_fracture.xyz
@@ -237,14 +241,15 @@ endTime = 3.16e8
 [Materials]
   [porosity]
     type = PorousFlowPorosityLinear
-    porosity_ref = 1E-4
+    porosity_ref = 1E-4 # fracture porosity = 1.0, but must include fracture aperture of 1E-4 at P = insitu_pp
     P_ref = insitu_pp
-    P_coeff = 3e-10
+    P_coeff = 3e-4 #fixme lynn lowered this from 1e-3 because initial hydrostatic pressure is so much higher
+    #P_coeff = 1E-3 # this is in metres/MPa, ie for P_ref = 1/P_coeff, the aperture becomes 1 metre
     porosity_min = 1E-5
   []
   [permeability]
     type = PorousFlowPermeabilityKozenyCarman
-    k0 = 1E-15
+    k0 = 1E-15  # fracture perm = 1E-11 m^2, but must include fracture aperture of 1E-4
     poroperm_function = kozeny_carman_phi0
     m = 0
     n = 3
@@ -252,12 +257,12 @@ endTime = 3.16e8
   []
   [internal_energy]
     type = PorousFlowMatrixInternalEnergy
-    density = 2700
-    specific_heat_capacity = 0
+    density = 2700 # kg/m^3
+    specific_heat_capacity = 0 # basically no rock inside the fracture
   []
   [aq_thermal_conductivity]
     type = PorousFlowThermalConductivityIdeal
-    dry_thermal_conductivity = '0.6E-4 0 0  0 0.6E-4 0  0 0 0.6E-4'
+    dry_thermal_conductivity = '0.6E-4 0 0  0 0.6E-4 0  0 0 0.6E-4' # thermal conductivity of water times fracture aperture.  This should increase linearly with aperture, but is set constant in this model
   []
 []
 
@@ -268,14 +273,11 @@ endTime = 3.16e8
     vars = 'dt kg_out'
     value = 'kg_out/dt'
   []
-  [insitu_pp]
+  [./insitu_pp]
     type = ParsedFunction
-    value = '9.81*1000*(3000 - z)'
-  []
-  [insitu_T]
-    type = ParsedFunction
-    value = '363'
-  []
+    value = '- 0.847E-2 * z' # Approximate hydrostatic in MPa  #fixme lynn is 30 correct for 3000m depth?
+    #value = (1000*9.8*(z*-1))
+  [../]
 []
 
 [Postprocessors]
@@ -295,25 +297,20 @@ endTime = 3.16e8
     type = PorousFlowPlotQuantity
     uo = J_out_uo
   []
-  [TK_in]
-    type = PointValue
-    variable = frac_T
-    point = '0 -50 0'
-  []
   [TK_out]
     type = PointValue
     variable = frac_T
-    point = '0 50 0'
+    point = '0 -375 -3000'
   []
   [P_out]
     type = PointValue
     variable = frac_P
-    point = '0 50 0'
+    point = '0 -375 -3000'
   []
   [P_in]
     type = PointValue
     variable = frac_P
-    point = '0 -50 0'
+    point = '0 375 -3000'
   []
 []
 
@@ -327,42 +324,52 @@ endTime = 3.16e8
 []
 
 [Preconditioning]
-  [./superlu]
+  [superLU]
     type = SMP
     full = true
     petsc_options_iname = '-ksp_type -pc_type -pc_factor_mat_solver_package'
     petsc_options_value = 'gmres lu superlu_dist'
-  [../]
+  []
 []
 
 [Executioner]
   type = Transient
   solve_type = NEWTON
-  dt = 0.1e7
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    dt = 1
+    growth_factor = 1.5
+    optimal_iterations = 10
+    timestep_limiting_postprocessor = 1E8
+  []
   end_time = ${endTime}
+
   line_search = 'none'
   automatic_scaling = true
-  l_max_its = 20
+  l_max_its = 60
   l_tol = 8e-3
   nl_forced_its = 1
-  nl_max_its = 20
-  nl_rel_tol = 5e-04
-  nl_abs_tol = 1e-09
+  nl_max_its = 40
+  nl_rel_tol = 5e-05
+  nl_abs_tol = 1e-10
 []
 
 [Outputs]
   print_linear_residuals = false
-  exodus = false
   csv = true
-  # [fracCSV]
-  #   type = CSV
-  #   sync_times = '100 200 300 400 500 600 700 800 900
-  #                 1000 2000 3000 4000 5000 6000 7000 8000 9000
-  #                 1000e1 2000e1 3000e1 4000e1 5000e1 6000e1 7000e1 8000e1 9000e1
-  #                 1000e2 2000e2 3000e2 4000e2 5000e2 6000e2 7000e2 8000e2 9000e2
-  #                 1000e3 2000e3 3000e3 4000e3 5000e3 6000e3 7000e3 8000e3 9000e3
-  #                 1000e4 2000e4 3000e4 4000e4 5000e4 6000e4 7000e4 8000e4 9000e4
-  #                 1000e5 2000e5 3000e5 4000e5 5000e5 6000e5 7000e5 8000e5 9000e5'
-  #   sync_only = true
-  # []
+  [frac]
+    type = Exodus
+    sync_times = '1 10 100 200 300 400 500 600 700 800 900 1000 1100 1200 1300
+    1400 1500 1600 1700 1800 1900 2000 2100 2200 2300 2400 2500 2600 2700 2800
+    2900 3000 3100 3200 3300 3400 3500 3600 3700 3800 3900 4000 4100 4200 4300
+    4400 4500 4600 4700 4800 4900 5000 5100 5200 5300 5400 5500 5600 5700 5800
+    5900 6000 6100 6200 6300 6400 6500 6600 6700 6800 6900 7000 7100 7200 7300
+    7400 7500 7600 7700 7800 7900 8000 8100 8200 8300 8400 8500 8600 8700 8800
+    8900 9000 10000 11000 12000 13000 14000 15000 16000 17000 18000 19000 20000
+    30000 50000 70000 100000 200000 300000 400000 500000 600000 700000 800000
+    900000 1000000 1100000 1200000 1300000 1400000 1500000 1600000 1700000
+    1800000 1900000 2000000 2100000 2200000 2300000 2400000 2500000 2600000
+    2700000 2800000 2900000'
+    sync_only = true
+  []
 []
