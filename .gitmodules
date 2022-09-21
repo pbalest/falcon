@@ -1,3 +1,7 @@
 [submodule "moose"]
-	path = moose
-	url = git@github.com:pbalest/moose.git
+		path = moose
+		url = git@github.com:pbalest/moose.git
+[submodule "iapws95"]
+    path = iapws95
+    url = git@hpcgitlab.hpc.inl.gov:idaholab/iapws95.git
+    update = none
